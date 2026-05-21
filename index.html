@@ -193,6 +193,13 @@ textarea{min-height:72px;resize:none}
       <button class="btn btn-primary" onclick="saveDailySummary()">保存今日小结</button>
     </div>
   </div>
+  
+  <div style="margin:0 16px 12px">
+    <button class="btn btn-primary" onclick="shareToWeixin()" style="background:linear-gradient(135deg,#07c160,#06ad56);font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      分享今日记录给家人
+    </button>
+  </div>
   <div class="card" id="trend-card" style="display:none">
     <div class="card-header"><h3>近7天最低血氧趋势</h3></div>
     <div class="card-body"><div class="trend-bar-wrap" id="trend-container"></div></div>
@@ -885,6 +892,79 @@ function initCountdown(){
   else{el.textContent=diff+'天';sub.textContent='约6月8日满2月 · 建议6月10日复诊后减至5mg/日';}
 }
 
+
+
+function shareToWeixin() {
+  const data = getTodayData();
+  const now = new Date();
+  const dateStr = now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日';
+  
+  const slotLabels = {
+    morning: '早晨静息',
+    daytime: '白天安静', 
+    activity: '活动后',
+    'post-oxy': '吸氧后',
+    bedtime: '睡前'
+  };
+  
+  let records = '';
+  let minSpo2 = 100;
+  let hasData = false;
+  
+  SLOTS.forEach(s => {
+    const rec = data.slots[s.id];
+    if (rec && rec.spo2) {
+      hasData = true;
+      if (rec.spo2 < minSpo2) minSpo2 = rec.spo2;
+      let line = `${slotLabels[s.id]}：${rec.spo2}%`;
+      if (rec.hr) line += ` 心率${rec.hr}`;
+      if (rec.feeling) line += ` ${rec.feeling}`;
+      if (rec.oxy === '是') line += ` 吸氧${rec.flow?rec.flow+'L':''}`;
+      records += line + '
+';
+    }
+  });
+  
+  if (!hasData) {
+    showToast('今天还没有记录，请先记录血氧');
+    return;
+  }
+  
+  let status = minSpo2 >= 95 ? '✅ 状态良好' : minSpo2 >= 90 ? '⚠️ 血氧偏低' : '🚨 血氧过低';
+  let msg = `【爸爸今日血氧报告】${dateStr}
+
+`;
+  msg += `${status}  最低血氧：${minSpo2}%
+
+`;
+  msg += `📊 各时段记录：
+${records}`;
+  if (data.oxyHours) msg += `
+💨 今日吸氧：${data.oxyHours}小时`;
+  if (data.oxyWhen) msg += `（${data.oxyWhen}）`;
+  if (data.note) msg += `
+
+📝 备注：${data.note}`;
+  msg += '
+
+— 来自爸爸健康App';
+  
+  // Copy to clipboard then open WeChat
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(msg).then(() => {
+      showToast('已复制！请打开微信粘贴发送');
+      // Try to open WeChat on mobile
+      setTimeout(() => {
+        window.location.href = 'weixin://';
+      }, 800);
+    }).catch(() => {
+      // Fallback: show in alert for manual copy
+      prompt('复制下面的内容，发送给家人：', msg);
+    });
+  } else {
+    prompt('复制下面的内容，发送给家人：', msg);
+  }
+}
 
 function init(){
   initDate();
