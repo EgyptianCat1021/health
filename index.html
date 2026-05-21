@@ -140,7 +140,6 @@ textarea{min-height:72px;resize:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{display:inline-block;animation:spin .8s linear infinite}
 </style>
-<script src="https://unpkg.com/@cloudbase/js-sdk/dist/cloudbase.full.js"></script>
 </head>
 <body>
 
@@ -408,113 +407,26 @@ textarea{min-height:72px;resize:none}
 </div>
 
 <script>
-// ─── 腾讯云 CloudBase 同步（JS SDK）───────────────────────────────
-const TCB_ENV = 'health-d6glspgai7a0979ac';
-let tcbApp = null;
-let tcbDb = null;
+// ─── 동기화 비활성화 (sync disabled) ───────────────────────────────
 let isSyncing = false;
 let pendingSync = false;
 
-function initTCB() {
-  try {
-    tcbApp = cloudbase.init({ env: TCB_ENV });
-    tcbDb = tcbApp.database();
-    // 匿名登录
-    tcbApp.auth({ persistence: 'local' }).anonymousAuthProvider().signIn().then(() => {
-      syncToCloud(true);
-    }).catch(e => {
-      console.error('TCB auth error:', e);
-      setSyncStatus('err', '同步失败，点击重试');
-    });
-  } catch(e) {
-    console.error('TCB init error:', e);
-    setSyncStatus('err', '同步失败，点击重试');
-  }
-}
-
-function collectAllData() {
-  const out = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k === 'tcb_doc_id') continue;
-    try { out[k] = JSON.parse(localStorage.getItem(k)); } catch { out[k] = localStorage.getItem(k); }
-  }
-  return out;
-}
-
-function applyRemoteData(remote) {
-  if (!remote) return;
-  Object.entries(remote).forEach(([k, v]) => {
-    if (k.startsWith('spo2_')) {
-      const local = ld(k, null);
-      if (!local) { sd(k, v); return; }
-      const merged = Object.assign({}, v, local);
-      merged.slots = Object.assign({}, v.slots || {}, local.slots || {});
-      sd(k, merged);
-    } else {
-      if (localStorage.getItem(k) === null) sd(k, v);
-    }
-  });
-}
-
-async function syncToCloud(silent) {
-  if (isSyncing) { pendingSync = true; return; }
-  if (!tcbDb) { setSyncStatus('err', '同步失败，点击重试'); return; }
-  isSyncing = true;
-  setSyncStatus('syncing', '同步中…');
-  try {
-    const col = tcbDb.collection('health_sync');
-    const allData = collectAllData();
-    const docId = localStorage.getItem('tcb_doc_id');
-    if (docId) {
-      // pull then push
-      const res = await col.doc(docId).get();
-      if (res.data && res.data[0]) applyRemoteData(res.data[0].health_data);
-      await col.doc(docId).update({ health_data: allData, updated: new Date().toISOString() });
-    } else {
-      // find or create
-      const res = await col.where({ user_id: 'hanyonghong' }).limit(1).get();
-      if (res.data && res.data.length > 0) {
-        const doc = res.data[0];
-        localStorage.setItem('tcb_doc_id', doc._id);
-        applyRemoteData(doc.health_data);
-        await col.doc(doc._id).update({ health_data: allData, updated: new Date().toISOString() });
-      } else {
-        const addRes = await col.add({ user_id: 'hanyonghong', health_data: allData, updated: new Date().toISOString() });
-        if (addRes.id) localStorage.setItem('tcb_doc_id', addRes.id);
-      }
-    }
-    const t = new Date();
-    const ts = (t.getHours()+'').padStart(2,'0')+':'+(t.getMinutes()+'').padStart(2,'0');
-    setSyncStatus('ok', '已同步 '+ts);
-    if (!silent) showToast('☁ 同步成功');
-    renderSlots();
-    if (document.getElementById('page-history').classList.contains('active')) renderHistory();
-  } catch(e) {
-    console.error('Sync error:', e);
-    setSyncStatus('err', '同步失败，点击重试');
-    if (!silent) showToast('同步失败: ' + e.message);
-  }
-  isSyncing = false;
-  if (pendingSync) { pendingSync = false; setTimeout(() => syncToCloud(true), 500); }
-}
-
 function setSyncStatus(state, text) {
-  const badge = document.getElementById('sync-badge');
   const icon = document.getElementById('sync-icon');
   const label = document.getElementById('sync-label');
-  label.textContent = text;
-  if (state === 'syncing') { icon.textContent = '↻'; icon.classList.add('spin'); badge.style.opacity = '.8'; }
-  else if (state === 'ok') { icon.textContent = '☁'; icon.classList.remove('spin'); badge.style.opacity = '1'; }
-  else { icon.textContent = '⚠'; icon.classList.remove('spin'); badge.style.opacity = '1'; }
+  if(label) label.textContent = text;
+  if(icon) { icon.textContent = state==='ok'?'☁':state==='syncing'?'↻':'⚠'; }
+  if(state==='syncing') icon && icon.classList.add('spin');
+  else icon && icon.classList.remove('spin');
 }
 
-function manualSync() { syncToCloud(false); }
+function syncToCloud(silent) { setSyncStatus('ok', '本地存储'); }
+function manualSync() { showToast('数据已保存在本地'); }
 
 let syncTimer = null;
 function scheduleSync() {
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => syncToCloud(true), 2000);
+  syncTimer = setTimeout(() => {}, 2000);
 }
 
 // ─── App data ───────────────────────────────────────────
@@ -980,8 +892,7 @@ function init(){
   if(td.oxyHours)document.getElementById('oxy-hours').value=td.oxyHours;
   if(td.oxyWhen)document.getElementById('oxy-when').value=td.oxyWhen;
   if(td.note)document.getElementById('daily-note').value=td.note;
-  // Init TCB after page load
-  setTimeout(initTCB, 500);
+  
 }
 init();
 </script>
