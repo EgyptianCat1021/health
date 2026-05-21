@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="爸爸健康">
+<meta name="theme-color" content="#f0f7ff">
+<title>韩永宏 · 健康管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --primary:#1a6db5;--primary-light:#e6f1fb;
+  --danger:#e24b4a;--danger-light:#fcebeb;
+  --success:#3B6D11;--success-light:#eaf3de;
+  --warning:#BA7517;--warning-light:#faeeda;
+  --gray:#5F5E5A;--gray-light:#F1EFE8;
+  --text:#2C2C2A;--text2:#5F5E5A;--text3:#888780;
+  --bg:#f8fafb;--card:#fff;--border:#e0e0d8;
+  --radius:14px;--radius-sm:10px;
+  --font:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+h3{font-size:16px;font-weight:600}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 4px 8px;cursor:pointer;color:var(--text3);font-size:11px;gap:3px;transition:color .2s}
+.nav-item.active{color:var(--primary)}
+.nav-item svg{width:24px;height:24px;stroke-width:1.8;fill:none;stroke:currentColor}
+.page{display:none;padding:0 0 16px}
+.page.active{display:block}
+.page-header{background:linear-gradient(135deg,#1a6db5 0%,#2d8fd6 100%);color:#fff;padding:52px 20px 24px}
+.page-header h1{font-size:20px;font-weight:700;margin-bottom:4px}
+.page-header p{font-size:13px;opacity:.85}
+.status-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:12px;margin-top:10px}
+.dot{width:7px;height:7px;border-radius:50%;background:#6ee7b7;display:inline-block}
+.sync-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:11px;margin-top:6px;cursor:pointer}
+.sync-badge.syncing{opacity:.7}
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);margin:0 16px 12px;overflow:hidden}
+.card-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-header h3{font-size:15px;color:var(--text)}
+.card-body{padding:14px 16px}
+.section-label{font-size:12px;color:var(--text3);padding:16px 20px 6px;font-weight:600;letter-spacing:.5px}
+label.field-label{display:block;font-size:13px;color:var(--text2);margin-bottom:5px;font-weight:500}
+input[type=text],input[type=number],select,textarea{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:16px;font-family:var(--font);color:var(--text);background:#fff;outline:none;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--primary)}
+textarea{min-height:72px;resize:none}
+.field-group{margin-bottom:14px}
+.slot{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.slot:last-child{border-bottom:none}
+.slot:active{background:var(--gray-light)}
+.slot-time{width:82px;font-size:13px;font-weight:600;color:var(--text2)}
+.slot-vals{flex:1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.slot-spo2{font-size:18px;font-weight:700}
+.slot-hr{font-size:13px;color:var(--text2)}
+.slot-feeling{font-size:12px;padding:2px 8px;border-radius:12px;background:var(--gray-light);color:var(--text2)}
+.slot-empty{font-size:13px;color:var(--text3);font-style:italic}
+.slot-add{color:var(--primary);font-size:13px;font-weight:500;white-space:nowrap}
+.summary-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px}
+.summary-box{background:var(--gray-light);border-radius:var(--radius-sm);padding:10px 12px;text-align:center}
+.summary-box .val{font-size:22px;font-weight:700;display:block}
+.summary-box .lbl{font-size:11px;color:var(--text3);margin-top:2px}
+.summary-box.danger .val{color:var(--danger)}
+.trend-bar-wrap{padding:4px 0}
+.trend-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.trend-date{font-size:11px;color:var(--text3);width:32px;text-align:right}
+.trend-bar-bg{flex:1;background:var(--gray-light);border-radius:4px;height:20px;overflow:hidden}
+.trend-bar{height:100%;border-radius:4px;transition:width .4s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px}
+.trend-bar span{font-size:11px;font-weight:600;color:#fff}
+.trend-bar.ok{background:var(--primary)}
+.trend-bar.warn{background:var(--warning)}
+.trend-bar.danger{background:var(--danger)}
+.med-item{display:flex;align-items:flex-start;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.med-item:last-child{border-bottom:none}
+.med-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:5px}
+.med-info{flex:1}
+.med-name{font-size:15px;font-weight:600}
+.med-detail{font-size:12px;color:var(--text2);margin-top:2px}
+.med-note{font-size:11px;color:var(--text3);background:var(--gray-light);padding:2px 7px;border-radius:10px;display:inline-block;margin-top:4px}
+.med-stopped .med-dot{background:var(--text3)}
+.med-stopped .med-name{color:var(--text3);text-decoration:line-through}
+.med-paused .med-dot{background:var(--warning)}
+.med-paused .med-name{color:var(--warning)}
+.countdown-box{margin:0 16px 12px;background:linear-gradient(135deg,#fff7e6,#fff);border:1.5px solid #FAC775;border-radius:var(--radius);padding:16px}
+.countdown-title{font-size:13px;color:var(--warning);font-weight:600;margin-bottom:6px}
+.countdown-days{font-size:36px;font-weight:700;color:var(--warning);line-height:1}
+.countdown-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.tabs{display:flex;margin:0 16px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.tab{flex:1;padding:9px;font-size:13px;font-weight:500;cursor:pointer;text-align:center;background:#fff;color:var(--text2);transition:all .2s;font-family:var(--font);border:none;border-right:1px solid var(--border)}
+.tab:last-child{border-right:none}
+.tab.active{background:var(--primary);color:#fff}
+.q-item{display:flex;align-items:flex-start;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.q-item:last-child{border-bottom:none}
+.q-check{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:1px;transition:all .2s}
+.q-check.done{background:var(--success-light);border-color:var(--success)}
+.q-text{font-size:13px;color:var(--text);line-height:1.55;flex:1}
+.q-del{width:28px;height:28px;border-radius:6px;border:none;background:var(--danger-light);color:var(--danger);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font)}
+.alert-item{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);align-items:flex-start}
+.alert-item:last-child{border-bottom:none}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.alert-dot.red{background:var(--danger)}
+.alert-dot.orange{background:#ef9f27}
+.alert-text{font-size:13px;line-height:1.5}
+.history-entry{padding:12px 16px;border-bottom:1px solid var(--border)}
+.history-entry:last-child{border-bottom:none}
+.history-date{font-size:12px;color:var(--text3);margin-bottom:4px}
+.history-stats{display:flex;gap:8px;flex-wrap:wrap}
+.history-stat{font-size:12px;background:var(--gray-light);padding:2px 8px;border-radius:10px;color:var(--text2)}
+.history-stat.low{background:var(--danger-light);color:var(--danger)}
+.history-note{font-size:12px;color:var(--text2);margin-top:4px;font-style:italic}
+.profile-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.profile-row:last-child{border-bottom:none}
+.profile-key{font-size:13px;color:var(--text2)}
+.profile-val{font-size:13px;font-weight:600;color:var(--text);text-align:right;max-width:62%}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-height:88vh;overflow-y:auto;padding:20px 20px 36px;transform:translateY(40px);transition:transform .25s}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.btn{display:block;width:100%;padding:13px;border-radius:var(--radius-sm);font-size:16px;font-weight:600;font-family:var(--font);cursor:pointer;border:none;transition:all .15s;text-align:center}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:active{background:#1558a0;transform:scale(.98)}
+.btn-secondary{background:var(--gray-light);color:var(--text)}
+.btn-secondary:active{background:#e0ddd6}
+.btn-sm{padding:8px 16px;width:auto;font-size:13px;border-radius:var(--radius-sm)}
+.feeling-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.feeling-pill{padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:14px;cursor:pointer;background:#fff;transition:all .2s;font-family:var(--font)}
+.feeling-pill.selected{background:var(--primary);border-color:var(--primary);color:#fff}
+.tip-box{background:var(--primary-light);border-radius:var(--radius-sm);padding:10px 14px;margin:0 16px 12px;font-size:12px;color:#1558a0;line-height:1.6}
+.empty-state{text-align:center;padding:32px 20px;color:var(--text3)}
+.empty-state svg{width:48px;height:48px;stroke:var(--border);fill:none;stroke-width:1.5;margin:0 auto 12px;display:block}
+.empty-state p{font-size:14px}
+::-webkit-scrollbar{width:0}
+/* sync status bar */
+.sync-bar{background:#f0f7ff;border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2)}
+.sync-bar button{font-size:12px;padding:4px 12px;background:var(--primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:var(--font)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+</style>
+</head>
+<body>
+
+<!-- PAGE: 血氧记录 -->
+
+<div id="token-setup" style="display:none;position:fixed;inset:0;background:#f8fafb;z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:32px">
+  <div style="font-size:48px;margin-bottom:16px">🏥</div>
+  <div style="font-size:20px;font-weight:700;color:#2C2C2A;margin-bottom:8px">韩永宏健康管理</div>
+  <div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:32px;line-height:1.6">首次使用需要输入 GitHub Token<br>用于数据云端同步</div>
+  <input id="token-input" type="password" placeholder="粘贴 ghp_ 开头的 Token"
+    style="width:100%;max-width:320px;padding:12px;border:1.5px solid #e0e0d8;border-radius:10px;font-size:15px;margin-bottom:12px;font-family:'PingFang SC',sans-serif">
+  <button onclick="saveToken()" style="width:100%;max-width:320px;padding:13px;background:#1a6db5;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:'PingFang SC',sans-serif">开始使用</button>
+  <div style="font-size:11px;color:#888780;margin-top:16px;text-align:center">Token 仅存储在您的设备本地</div>
+</div>
+<div id="app-body">
+<div class="page active" id="page-oxygen">
+  <div class="page-header">
+    <h1>今日血氧记录</h1>
+    <p id="today-date"></p>
+    <div class="status-badge"><span class="dot" id="status-dot"></span><span id="status-text">状态良好</span></div><br>
+    <div class="sync-badge" id="sync-badge" onclick="manualSync()">
+      <span id="sync-icon">☁</span><span id="sync-label">点击同步</span>
+    </div>
+  </div>
+  <div id="sync-bar-wrap"></div>
+  <div class="summary-row">
+    <div class="summary-box" id="min-spo2-box">
+      <span class="val" id="min-spo2-val">--</span>
+      <div class="lbl">今日最低血氧</div>
+    </div>
+    <div class="summary-box">
+      <span class="val" id="total-oxy-hours">--</span>
+      <div class="lbl">今日吸氧时长</div>
+    </div>
+  </div>
+  <div class="tip-box"><b>测量提示：</b>手指暖和后夹好，等30秒数字稳定再记录。走路后立刻坐下测最低值。</div>
+  <div class="card">
+    <div class="card-header">
+      <h3>五时段记录</h3>
+      <span style="font-size:12px;color:var(--text3)">今天</span>
+    </div>
+    <div id="slots-container"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>今日小结</h3></div>
+    <div class="card-body">
+      <div class="field-group">
+        <label class="field-label">今天吸氧约几小时？</label>
+        <input type="number" id="oxy-hours" placeholder="例如：15" min="0" max="24" inputmode="decimal">
+      </div>
+      <div class="field-group">
+        <label class="field-label">主要吸氧时段</label>
+        <input type="text" id="oxy-when" placeholder="例如：睡眠、活动后、全天">
+      </div>
+      <div class="field-group">
+        <label class="field-label">今日特殊情况（可不填）</label>
+        <textarea id="daily-note" placeholder="如：黄痰增多、下肢水肿、发热、感冒、头晕等…"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="saveDailySummary()">保存今日小结</button>
+    </div>
+  </div>
+  <div class="card" id="trend-card" style="display:none">
+    <div class="card-header"><h3>近7天最低血氧趋势</h3></div>
+    <div class="card-body"><div class="trend-bar-wrap" id="trend-container"></div></div>
+  </div>
+</div>
+
+<!-- PAGE: 用药清单 -->
+<div class="page" id="page-meds">
+  <div class="page-header">
+    <h1>用药清单</h1>
+    <p>查询用药信息 · 减量倒计时</p>
+  </div>
+  <div class="countdown-box">
+    <div class="countdown-title">⏳ 泼尼松减量倒计时</div>
+    <div class="countdown-days" id="pred-countdown">--</div>
+    <div class="countdown-sub" id="pred-subtitle"></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text2)">⚠️ 减量前请先复诊确认（6月10日计划复诊）</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchMedTab('morning',this)">早餐后</button>
+    <button class="tab" onclick="switchMedTab('noon',this)">三餐后</button>
+    <button class="tab" onclick="switchMedTab('night',this)">晚上</button>
+    <button class="tab" onclick="switchMedTab('stopped',this)">已停用</button>
+  </div>
+  <div class="card" id="med-panel-morning"><div id="meds-morning"></div></div>
+  <div class="card" id="med-panel-noon" style="display:none"><div id="meds-noon"></div></div>
+  <div class="card" id="med-panel-night" style="display:none"><div id="meds-night"></div></div>
+  <div class="card" id="med-panel-stopped" style="display:none"><div id="meds-stopped"></div></div>
+</div>
+
+<!-- PAGE: 复诊助手 -->
+<div class="page" id="page-visit">
+  <div class="page-header">
+    <h1>复诊助手</h1>
+    <p>6月10日计划复诊 · 可自行增删问题</p>
+  </div>
+  <div class="card" style="background:#fff7e6;border-color:#FAC775">
+    <div class="card-body">
+      <div style="font-size:13px;color:var(--warning);font-weight:600;margin-bottom:6px">6月10日复诊 — 建议检查项目</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.9">
+        尿常规 + 尿沉渣 · 24小时尿蛋白 · ACR/UPCR<br>
+        肌酐、尿素氮、eGFR、胱抑素C、尿酸<br>
+        钾、钠、钙、磷、25-OH维D、PTH<br>
+        血常规 · 肝功能 · HBV DNA（按医生建议）
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px 4px">
+    <span class="section-label" style="padding:0">肾内科问题</span>
+    <button class="btn btn-sm btn-primary" onclick="openAddQ('kidney')" style="font-size:12px;padding:5px 12px">＋ 添加问题</button>
+  </div>
+  <div class="card"><div id="qs-kidney"></div></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px 4px">
+    <span class="section-label" style="padding:0">呼吸科 / 心血管问题</span>
+    <button class="btn btn-sm btn-primary" onclick="openAddQ('resp')" style="font-size:12px;padding:5px 12px">＋ 添加问题</button>
+  </div>
+  <div class="card"><div id="qs-resp"></div></div>
+  <div class="section-label">立即就医红线</div>
+  <div class="card">
+    <div class="alert-item"><span class="alert-dot red"></span><span class="alert-text">静息血氧持续 &lt;88%</span></div>
+    <div class="alert-item"><span class="alert-dot red"></span><span class="alert-text">活动后血氧低于85%，休息/吸氧后回不来</span></div>
+    <div class="alert-item"><span class="alert-dot red"></span><span class="alert-text">喘到说不完整话、嘴唇发紫</span></div>
+    <div class="alert-item"><span class="alert-dot red"></span><span class="alert-text">嗜睡、头痛、反应慢、意识不清</span></div>
+    <div class="alert-item"><span class="alert-dot orange"></span><span class="alert-text">黄绿痰增多 + 发热</span></div>
+    <div class="alert-item"><span class="alert-dot orange"></span><span class="alert-text">肉眼血尿、尿泡沫明显增加</span></div>
+    <div class="alert-item"><span class="alert-dot orange"></span><span class="alert-text">双下肢紫癜皮疹复发、眼睑/脚踝水肿</span></div>
+    <div class="alert-item"><span class="alert-dot orange"></span><span class="alert-text">黑便、便血、明显皮肤瘀斑</span></div>
+  </div>
+</div>
+
+<!-- PAGE: 档案 -->
+<div class="page" id="page-history">
+  <div class="page-header">
+    <h1>历史记录</h1>
+    <p>血氧记录查询与导出</p>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h3>血氧记录历史</h3>
+      <button class="btn btn-sm btn-secondary" onclick="exportData()">导出CSV</button>
+    </div>
+    <div id="history-list">
+      <div class="empty-state">
+        <svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="3"/><line x1="16" y1="16" x2="32" y2="16"/><line x1="16" y1="23" x2="32" y2="23"/><line x1="16" y1="30" x2="26" y2="30"/></svg>
+        <p>暂无记录<br>开始记录血氧数据后会显示在这里</p>
+      </div>
+    </div>
+  </div>
+  <div class="section-label">健康档案摘要</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="profile-row"><span class="profile-key">姓名</span><span class="profile-val">韩永宏</span></div>
+      <div class="profile-row"><span class="profile-key">年龄 / 性别</span><span class="profile-val">71岁 · 男 · 1955-02-10</span></div>
+      <div class="profile-row"><span class="profile-key">身高 / 体重</span><span class="profile-val">180cm / 78kg · BMI≈24.1</span></div>
+      <div class="profile-row"><span class="profile-key">过敏禁忌</span><span class="profile-val" style="color:var(--danger)">四环素、土霉素 绝对禁忌</span></div>
+      <div class="profile-row"><span class="profile-key">紧急联系</span><span class="profile-val">韩娟 · 15592102218</span></div>
+      <div class="profile-row"><span class="profile-key">主要科室</span><span class="profile-val">肾病内科 · 呼吸内科</span></div>
+    </div>
+  </div>
+  <div class="section-label">最新复查关键指标（2026.05）</div>
+  <div class="card">
+    <div class="card-body">
+      <div class="profile-row"><span class="profile-key">24h尿蛋白</span><span class="profile-val" style="color:var(--success)">53mg ✓ 正常</span></div>
+      <div class="profile-row"><span class="profile-key">血红蛋白 Hb</span><span class="profile-val">130 g/L（改善）</span></div>
+      <div class="profile-row"><span class="profile-key">eGFR</span><span class="profile-val">86.79</span></div>
+      <div class="profile-row"><span class="profile-key">Pro-BNP</span><span class="profile-val">70.27 pg/mL ✓</span></div>
+      <div class="profile-row"><span class="profile-key">心脏EF</span><span class="profile-val">56% ✓</span></div>
+      <div class="profile-row"><span class="profile-key">活动后血氧</span><span class="profile-val" style="color:var(--danger)">可降至85% ⚠️</span></div>
+      <div class="profile-row"><span class="profile-key">24h尿钠</span><span class="profile-val" style="color:var(--warning)">307.4 mmol ↑ 偏高</span></div>
+      <div class="profile-row"><span class="profile-key">肺结节</span><span class="profile-val">右肺中叶0.7×1.0cm 需随访</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav-bar">
+  <div class="nav-item active" onclick="switchPage('oxygen',this)">
+    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>血氧
+  </div>
+  <div class="nav-item" onclick="switchPage('meds',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>用药
+  </div>
+  <div class="nav-item" onclick="switchPage('visit',this)">
+    <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>复诊
+  </div>
+  <div class="nav-item" onclick="switchPage('history',this)">
+    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>档案
+  </div>
+</nav>
+
+<!-- MODAL: 时段记录 -->
+<div class="modal-overlay" id="slot-modal" onclick="closeModalBg(event,'slot-modal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-slot-title">时段记录</div>
+    <div class="field-group">
+      <label class="field-label">血氧 SpO₂（%）</label>
+      <input type="number" id="m-spo2" placeholder="例如：95" min="60" max="100" inputmode="numeric">
+      <div id="spo2-hint" style="font-size:12px;margin-top:4px"></div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">心率（次/分）</label>
+      <input type="number" id="m-hr" placeholder="例如：78" min="30" max="200" inputmode="numeric">
+    </div>
+    <div class="field-group">
+      <label class="field-label">是否吸氧</label>
+      <div class="feeling-pills">
+        <button class="feeling-pill" onclick="selectOxy(this,'否')">否</button>
+        <button class="feeling-pill" onclick="selectOxy(this,'是')">是</button>
+      </div>
+    </div>
+    <div class="field-group" id="flow-group" style="display:none">
+      <label class="field-label">氧流量（L/分）</label>
+      <input type="number" id="m-flow" placeholder="例如：2" min="0.5" max="10" step="0.5" inputmode="decimal">
+    </div>
+    <div class="field-group">
+      <label class="field-label">感觉</label>
+      <div class="feeling-pills">
+        <button class="feeling-pill" onclick="selectFeeling(this,'不喘')">不喘</button>
+        <button class="feeling-pill" onclick="selectFeeling(this,'轻喘')">轻喘</button>
+        <button class="feeling-pill" onclick="selectFeeling(this,'明显喘')">明显喘</button>
+      </div>
+    </div>
+    <div class="field-group" id="activity-group" style="display:none">
+      <label class="field-label">活动内容</label>
+      <input type="text" id="m-activity" placeholder="例如：走路、上厕所">
+      <div style="margin-top:8px">
+        <label class="field-label">最低血氧出现在</label>
+        <input type="text" id="m-lowest-when" placeholder="例如：走路第3分钟">
+      </div>
+      <div style="margin-top:8px">
+        <label class="field-label">吸氧后回升到（%）</label>
+        <input type="number" id="m-recovery" placeholder="例如：92" min="60" max="100" inputmode="numeric">
+      </div>
+    </div>
+    <div class="field-group" id="sleep-group" style="display:none">
+      <label class="field-label">夜间情况</label>
+      <div class="feeling-pills">
+        <button class="feeling-pill" onclick="toggleSleepSymp(this,'憋醒')">憋醒</button>
+        <button class="feeling-pill" onclick="toggleSleepSymp(this,'早晨头痛')">早晨头痛</button>
+        <button class="feeling-pill" onclick="toggleSleepSymp(this,'嗜睡')">嗜睡</button>
+        <button class="feeling-pill" onclick="toggleSleepSymp(this,'无异常')">无异常</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">备注（可不填）</label>
+      <input type="text" id="m-note" placeholder="其他情况…">
+    </div>
+    <button class="btn btn-primary" onclick="saveSlot()" style="margin-bottom:8px">保存</button>
+    <button class="btn btn-secondary" onclick="closeModal('slot-modal')">取消</button>
+  </div>
+</div>
+
+<!-- MODAL: 添加问题 -->
+<div class="modal-overlay" id="q-modal" onclick="closeModalBg(event,'q-modal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="q-modal-title">添加问题</div>
+    <div class="field-group">
+      <label class="field-label">问题内容</label>
+      <textarea id="q-input" placeholder="输入要问医生的问题…" style="min-height:100px"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveQuestion()" style="margin-bottom:8px">保存</button>
+    <button class="btn btn-secondary" onclick="closeModal('q-modal')">取消</button>
+  </div>
+</div>
+
+<script>
+// ─── GitHub Gist 同步配置 ───────────────────────────────
+const GH_TOKEN = localStorage.getItem('gh_token') || '';
+const GIST_FILENAME = 'hanyonghong_health.json';
+let gistId = localStorage.getItem('gist_id') || null;
+let isSyncing = false;
+let pendingSync = false;
+let lastSyncTime = parseInt(localStorage.getItem('last_sync_time') || '0');
+
+async function gistRequest(method, path, body) {
+  const res = await fetch('https://api.github.com' + path, {
+    method,
+    headers: {
+      'Authorization': 'token ' + GH_TOKEN,
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github.v3+json'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+  return res.json();
+}
+
+async function findOrCreateGist() {
+  if (gistId) return gistId;
+  // search existing gists
+  const gists = await gistRequest('GET', '/gists?per_page=100');
+  const found = gists.find(g => g.files && g.files[GIST_FILENAME]);
+  if (found) {
+    gistId = found.id;
+    localStorage.setItem('gist_id', gistId);
+    return gistId;
+  }
+  // create new
+  const created = await gistRequest('POST', '/gists', {
+    description: '韩永宏健康管理数据',
+    public: false,
+    files: { [GIST_FILENAME]: { content: JSON.stringify({v:1, data:{}}) } }
+  });
+  gistId = created.id;
+  localStorage.setItem('gist_id', gistId);
+  return gistId;
+}
+
+// Collect ALL app data from localStorage into one object
+function collectAllData() {
+  const out = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k === 'gist_id' || k === 'last_sync_time') continue;
+    try { out[k] = JSON.parse(localStorage.getItem(k)); } catch { out[k] = localStorage.getItem(k); }
+  }
+  return out;
+}
+
+// Write remote data into localStorage (merge: remote wins for older keys, local wins for newer)
+function applyRemoteData(remote) {
+  Object.entries(remote).forEach(([k, v]) => {
+    // For spo2_ keys: merge slot-level so neither device loses a slot
+    if (k.startsWith('spo2_')) {
+      const local = ld(k, null);
+      if (!local) { sd(k, v); return; }
+      // merge slots
+      const merged = Object.assign({}, v, local);
+      merged.slots = Object.assign({}, v.slots || {}, local.slots || {});
+      sd(k, merged);
+    } else {
+      // For questions, only overwrite if local doesn't have it yet
+      if (localStorage.getItem(k) === null) sd(k, v);
+    }
+  });
+}
+
+async function syncToGist(silent) {
+  if (isSyncing) { pendingSync = true; return; }
+  isSyncing = true;
+  setSyncStatus('syncing', '同步中…');
+  try {
+    const id = await findOrCreateGist();
+    // pull first
+    const gist = await gistRequest('GET', '/gists/' + id);
+    const remoteRaw = gist.files[GIST_FILENAME]?.content;
+    if (remoteRaw) {
+      try {
+        const remote = JSON.parse(remoteRaw);
+        if (remote.data) applyRemoteData(remote.data);
+      } catch {}
+    }
+    // push merged
+    const allData = collectAllData();
+    await gistRequest('PATCH', '/gists/' + id, {
+      files: { [GIST_FILENAME]: { content: JSON.stringify({v:1, updated: new Date().toISOString(), data: allData}) } }
+    });
+    lastSyncTime = Date.now();
+    localStorage.setItem('last_sync_time', lastSyncTime);
+    const t = new Date(lastSyncTime);
+    const ts = (t.getHours()+'').padStart(2,'0')+':'+(t.getMinutes()+'').padStart(2,'0');
+    setSyncStatus('ok', '已同步 '+ts);
+    if (!silent) showToast('☁ 同步成功');
+    // re-render in case remote had new data
+    renderSlots();
+    if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+  } catch(e) {
+    setSyncStatus('err', '同步失败，点击重试');
+    if (!silent) showToast('同步失败，请检查网络');
+  }
+  isSyncing = false;
+  if (pendingSync) { pendingSync = false; setTimeout(() => syncToGist(true), 500); }
+}
+
+function setSyncStatus(state, text) {
+  const badge = document.getElementById('sync-badge');
+  const icon = document.getElementById('sync-icon');
+  const label = document.getElementById('sync-label');
+  label.textContent = text;
+  if (state === 'syncing') { icon.textContent = '↻'; icon.classList.add('spin'); badge.style.opacity = '.8'; }
+  else if (state === 'ok') { icon.textContent = '☁'; icon.classList.remove('spin'); badge.style.opacity = '1'; }
+  else { icon.textContent = '⚠'; icon.classList.remove('spin'); badge.style.opacity = '1'; }
+}
+
+function manualSync() { syncToGist(false); }
+
+// Auto-sync after any save, debounced 2s
+let syncTimer = null;
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncToGist(true), 2000);
+}
+
+// ─── App data ───────────────────────────────────────────
+const SLOTS=[
+  {id:'morning',label:'早晨静息',hint:'安静坐5分钟后测'},
+  {id:'daytime',label:'白天安静',hint:'午饭前/午休后'},
+  {id:'activity',label:'活动后立刻',hint:'走路、上厕所后',isActivity:true},
+  {id:'post-oxy',label:'吸氧10-15分后',hint:'接活动后低氧'},
+  {id:'bedtime',label:'睡前',hint:'睡前测量',isSleep:true},
+];
+const MEDS_MORNING=[
+  {name:'醋酸泼尼松片',detail:'5mg × 2片（10mg/日）',note:'早饭后服，激素减量需复诊后决定'},
+  {name:'缬沙坦氨氯地平片',detail:'80mg/5mg × 1片',note:'早上服，监测血压'},
+  {name:'氟替美维吸入粉雾剂',detail:'100/62.5/25µg，1吸/日',note:'吸入后必须漱口'},
+  {name:'恩替卡韦片',detail:'0.5mg × 1片',note:'早饭后服，不可擅自停药'},
+  {name:'乙酰半胱氨酸片',detail:'0.6g × 1片',note:'化痰'},
+];
+const MEDS_NOON=[
+  {name:'联苯双酯滴丸',detail:'1.5mg × 5粒',note:'三餐后，现有药吃完后停'},
+];
+const MEDS_NIGHT=[
+  {name:'乙酰半胱氨酸片',detail:'0.6g × 1片',note:'晚餐后'},
+  {name:'联苯双酯滴丸',detail:'1.5mg × 5粒',note:'晚餐后，现有药吃完后停'},
+  {name:'非那雄胺片',detail:'5mg × 1片',note:'晚上服，会影响PSA判断'},
+  {name:'瑞舒伐他汀片',detail:'10mg × 1片',note:'晚上服，监测肝功能/肌酶'},
+  {name:'甘氨酸镁',detail:'100mg × 2粒',note:'睡眠/肌肉放松，腹泻时减量'},
+  {name:'碳酸钙D3片',detail:'600mg × 1片',note:'补钙，暂不自行加至2片'},
+  {name:'维生素D3',detail:'5000IU × 1粒',note:'促进钙吸收'},
+  {name:'维生素K2',detail:'100mcg × 2粒',note:'骨代谢辅助，如用华法林需告知医生'},
+  {name:'阿法骨化醇片',detail:'0.25µg × 1片',note:'活性维生素D，监测血钙血磷PTH'},
+  {name:'氯硝西泮片',detail:'2mg，仅必要时',note:'⚠️ 慎用，防跌倒和呼吸抑制'},
+];
+const MEDS_STOPPED=[
+  {name:'百令片',detail:'0.2g × 4片，三餐后',note:'已停用，暂不服用',status:'stopped'},
+  {name:'环磷酰胺',detail:'已按医嘱停用',note:'',status:'stopped'},
+  {name:'复方新诺明',detail:'已按医嘱停用',note:'',status:'stopped'},
+  {name:'阿司匹林',detail:'暂停',note:'恢复需医生决定（血小板偏低+尿潜血）',status:'stopped'},
+  {name:'阿仑膦酸钠',detail:'暂停',note:'有肾小管损伤史，恢复前需问肾内/骨科',status:'paused'},
+];
+const DEFAULT_QS_KIDNEY=[
+  '24h尿蛋白53mg，但尿潜血1+、红细胞轻度高，是否仍算肾炎稳定缓解？',
+  '若6月10日复查尿蛋白正常、肾功能稳定，泼尼松是否可从2片减至1片/日？',
+  '减到1片后多久复查？复查哪些项目？',
+  'eGFR 86.79、肌酐83、胱抑素C正常，这个波动是否需要处理？',
+  '24h尿钠307.4偏高，低盐目标是否控制到每日食盐5g以内？',
+  '钙片、D3、K2、阿法骨化醇是否需要调整？是否查25-OH维D、PTH、血磷、尿钙？',
+  '阿仑膦酸钠是否继续暂停？是否需要换其他抗骨质疏松方案？',
+  '恩替卡韦需要吃到什么时候？HBV DNA和肝功能多久复查一次？',
+];
+const DEFAULT_QS_RESP=[
+  '活动后血氧降到85%，家庭氧疗静息、活动、睡眠时分别建议多少流量？每天至少多少小时？',
+  '是否需要动脉血气或夜间血氧监测？',
+  '右肺中叶0.7×1.0cm结节边缘毛糙，建议3个月还是3-6个月复查薄层CT？',
+  '吸入药方案是否需要调整？能否现场确认吸入方法是否正确？',
+  '是否适合肺康复训练？如何开始最安全？',
+  'Pro-BNP低、心超EF正常，是否基本排除明显心衰？是否有肺源性心脏病证据？',
+  '有腔梗/椎动脉闭塞病史，但血小板低和尿潜血存在，阿司匹林是否继续停用？何时重新评估？',
+];
+
+let currentSlotId=null,selectedFeeling='',selectedOxy='',sleepSymps=[];
+let currentQPrefix=null;
+let todayKey='';
+
+function ld(k,fb){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):fb}catch{return fb}}
+function sd(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+function getDateKey(d){return d.toISOString().split('T')[0]}
+function getTodayData(){return ld('spo2_'+todayKey,{slots:{},oxyHours:'',oxyWhen:'',note:''})}
+function saveTodayData(d){sd('spo2_'+todayKey,d);scheduleSync();}
+function getQuestions(prefix){return ld('qs_'+prefix, prefix==='kidney'?[...DEFAULT_QS_KIDNEY]:[...DEFAULT_QS_RESP]);}
+function saveQuestions(prefix,list){sd('qs_'+prefix,list);scheduleSync();}
+
+function initDate(){
+  const now=new Date();
+  todayKey=getDateKey(now);
+  const wd=['日','一','二','三','四','五','六'];
+  document.getElementById('today-date').textContent=now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日 星期'+wd[now.getDay()];
+}
+
+function spo2Color(v){
+  if(!v)return'var(--text)';
+  if(v<85)return'var(--danger)';
+  if(v<90)return'#d87a00';
+  if(v<95)return'var(--warning)';
+  return'var(--success)';
+}
+
+function renderSlots(){
+  const data=getTodayData();
+  const c=document.getElementById('slots-container');
+  c.innerHTML='';
+  SLOTS.forEach(s=>{
+    const rec=data.slots[s.id];
+    const div=document.createElement('div');
+    div.className='slot';
+    div.onclick=()=>openSlotModal(s.id);
+    let inner=`<div class="slot-time">${s.label}<br><span style="font-size:10px;color:var(--text3);font-weight:400">${s.hint}</span></div>`;
+    if(rec&&rec.spo2){
+      const col=spo2Color(rec.spo2);
+      inner+=`<div class="slot-vals"><span class="slot-spo2" style="color:${col}">${rec.spo2}%</span>`;
+      if(rec.hr)inner+=`<span class="slot-hr">❤ ${rec.hr}</span>`;
+      if(rec.feeling)inner+=`<span class="slot-feeling">${rec.feeling}</span>`;
+      inner+=`</div>`;
+    }else{
+      inner+=`<div class="slot-vals slot-empty">未记录</div><span class="slot-add">＋ 记录</span>`;
+    }
+    div.innerHTML=inner;
+    c.appendChild(div);
+  });
+  renderSummary(data);
+  renderTrend();
+}
+
+function renderSummary(data){
+  const vals=Object.values(data.slots).map(s=>s.spo2).filter(Boolean);
+  const minV=vals.length?Math.min(...vals):null;
+  const el=document.getElementById('min-spo2-val');
+  el.textContent=minV?minV+'%':'--';
+  el.style.color=minV?spo2Color(minV):'var(--text)';
+  document.getElementById('min-spo2-box').className='summary-box'+(minV&&minV<88?' danger':'');
+  document.getElementById('total-oxy-hours').textContent=data.oxyHours?data.oxyHours+'h':'--';
+  const dot=document.getElementById('status-dot');
+  const txt=document.getElementById('status-text');
+  if(minV&&minV<85){dot.style.background='#f87171';txt.textContent='注意低氧'}
+  else if(minV&&minV<90){dot.style.background='#fbbf24';txt.textContent='血氧偏低'}
+  else{dot.style.background='#6ee7b7';txt.textContent='状态良好'}
+}
+
+function renderTrend(){
+  const container=document.getElementById('trend-container');
+  container.innerHTML='';
+  let hasAny=false;
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const dk=getDateKey(d);
+    const data=ld('spo2_'+dk,{slots:{}});
+    const vals=Object.values(data.slots).map(s=>s.spo2).filter(Boolean);
+    const minV=vals.length?Math.min(...vals):null;
+    const label=dk.slice(5).replace('-','/');
+    const pct=minV?Math.max(5,Math.min(100,((minV-60)/40)*100)):0;
+    const cls=minV?(minV<85?'danger':minV<90?'warn':'ok'):'ok';
+    const row=document.createElement('div');
+    row.className='trend-row';
+    row.innerHTML=`<span class="trend-date">${label}</span>
+      <div class="trend-bar-bg"><div class="trend-bar ${cls}" style="width:${minV?pct+'%':'0'}">
+      ${minV?`<span>${minV}%</span>`:''}</div></div>
+      <span style="font-size:11px;color:var(--text3);width:20px">${minV?'':'—'}</span>`;
+    container.appendChild(row);
+    if(minV)hasAny=true;
+  }
+  document.getElementById('trend-card').style.display=hasAny?'block':'none';
+}
+
+function openSlotModal(slotId){
+  currentSlotId=slotId;selectedFeeling='';selectedOxy='';sleepSymps=[];
+  const s=SLOTS.find(x=>x.id===slotId);
+  document.getElementById('modal-slot-title').textContent=s.label;
+  ['m-spo2','m-hr','m-flow','m-activity','m-lowest-when','m-recovery','m-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('spo2-hint').textContent='';
+  document.getElementById('flow-group').style.display='none';
+  document.getElementById('activity-group').style.display=s.isActivity?'block':'none';
+  document.getElementById('sleep-group').style.display=s.isSleep?'block':'none';
+  document.querySelectorAll('#slot-modal .feeling-pill').forEach(p=>p.classList.remove('selected'));
+  const rec=getTodayData().slots[slotId];
+  if(rec){
+    if(rec.spo2)document.getElementById('m-spo2').value=rec.spo2;
+    if(rec.hr)document.getElementById('m-hr').value=rec.hr;
+    if(rec.note)document.getElementById('m-note').value=rec.note;
+  }
+  openModal('slot-modal');
+  setTimeout(()=>document.getElementById('m-spo2').focus(),300);
+}
+
+document.getElementById('m-spo2').addEventListener('input',function(){
+  const v=parseInt(this.value);
+  const hint=document.getElementById('spo2-hint');
+  if(!v){hint.textContent='';return}
+  if(v<85){hint.style.color='var(--danger)';hint.textContent='⚠️ 严重低氧，需立即吸氧/就医'}
+  else if(v<88){hint.style.color='#d87a00';hint.textContent='⚠️ 血氧偏低，请立即吸氧'}
+  else if(v<95){hint.style.color='var(--warning)';hint.textContent='注意：血氧偏低'}
+  else{hint.style.color='var(--success)';hint.textContent='✓ 血氧正常'}
+});
+
+function selectFeeling(el,val){
+  document.querySelectorAll('#slot-modal .feeling-pill[onclick*="selectFeeling"]').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected');selectedFeeling=val;
+}
+function selectOxy(el,val){
+  document.querySelectorAll('#slot-modal .feeling-pill[onclick*="selectOxy"]').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected');selectedOxy=val;
+  document.getElementById('flow-group').style.display=val==='是'?'block':'none';
+}
+function toggleSleepSymp(el,val){
+  el.classList.toggle('selected');
+  if(el.classList.contains('selected'))sleepSymps.push(val);
+  else sleepSymps=sleepSymps.filter(x=>x!==val);
+}
+
+function saveSlot(){
+  const spo2=parseInt(document.getElementById('m-spo2').value)||null;
+  const hr=parseInt(document.getElementById('m-hr').value)||null;
+  const flow=parseFloat(document.getElementById('m-flow').value)||null;
+  const data=getTodayData();
+  data.slots[currentSlotId]={
+    spo2,hr,feeling:selectedFeeling,oxy:selectedOxy,flow,
+    activity:document.getElementById('m-activity').value,
+    lowestWhen:document.getElementById('m-lowest-when').value,
+    recovery:parseInt(document.getElementById('m-recovery').value)||null,
+    sleepSymps:[...sleepSymps],
+    note:document.getElementById('m-note').value,
+    ts:Date.now()
+  };
+  saveTodayData(data);
+  closeModal('slot-modal');
+  renderSlots();
+}
+
+function saveDailySummary(){
+  const data=getTodayData();
+  data.oxyHours=document.getElementById('oxy-hours').value;
+  data.oxyWhen=document.getElementById('oxy-when').value;
+  data.note=document.getElementById('daily-note').value;
+  saveTodayData(data);
+  renderSlots();
+  showToast('今日小结已保存，同步中…');
+}
+
+function renderMedList(list,containerId){
+  const c=document.getElementById(containerId);c.innerHTML='';
+  list.forEach(m=>{
+    const div=document.createElement('div');
+    div.className='med-item'+(m.status?' med-'+m.status:'');
+    div.innerHTML=`<div class="med-dot"></div>
+    <div class="med-info">
+      <div class="med-name">${m.name}</div>
+      <div class="med-detail">${m.detail}</div>
+      ${m.note?`<span class="med-note">${m.note}</span>`:''}
+    </div>`;
+    c.appendChild(div);
+  });
+}
+
+function switchMedTab(tab,el){
+  ['morning','noon','night','stopped'].forEach(t=>{
+    document.getElementById('med-panel-'+t).style.display=t===tab?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function renderQuestions(prefix){
+  const list=getQuestions(prefix);
+  const done=ld('qdone_'+prefix,[]);
+  const c=document.getElementById('qs-'+prefix);c.innerHTML='';
+  list.forEach((q,i)=>{
+    const isDone=done.includes(i);
+    const div=document.createElement('div');div.className='q-item';
+    div.innerHTML=`<div class="q-check${isDone?' done':''}" onclick="toggleQ('${prefix}',${i},this)">
+      ${isDone?`<svg viewBox="0 0 12 12" style="width:12px;height:12px"><polyline points="1,6 4,9 11,2" style="stroke-width:2;stroke:var(--success);fill:none"/></svg>`:''}
+    </div>
+    <div class="q-text" style="${isDone?'opacity:.4;text-decoration:line-through':''}">${q}</div>
+    <button class="q-del" onclick="deleteQ('${prefix}',${i})">×</button>`;
+    c.appendChild(div);
+  });
+  if(!list.length)c.innerHTML='<div style="padding:16px;font-size:13px;color:var(--text3);text-align:center">暂无问题，点击上方"添加问题"</div>';
+}
+
+function toggleQ(prefix,idx,el){
+  let done=ld('qdone_'+prefix,[]);
+  if(done.includes(idx))done=done.filter(x=>x!==idx);else done.push(idx);
+  sd('qdone_'+prefix,done);scheduleSync();
+  const isDone=done.includes(idx);
+  el.className='q-check'+(isDone?' done':'');
+  el.innerHTML=isDone?`<svg viewBox="0 0 12 12" style="width:12px;height:12px"><polyline points="1,6 4,9 11,2" style="stroke-width:2;stroke:var(--success);fill:none"/></svg>`:'';
+  const txt=el.nextElementSibling;txt.style.opacity=isDone?'.4':'1';txt.style.textDecoration=isDone?'line-through':'none';
+}
+
+function deleteQ(prefix,idx){
+  if(!confirm('确认删除这个问题吗？'))return;
+  const list=getQuestions(prefix);list.splice(idx,1);saveQuestions(prefix,list);
+  let done=ld('qdone_'+prefix,[]).filter(x=>x!==idx).map(x=>x>idx?x-1:x);
+  sd('qdone_'+prefix,done);renderQuestions(prefix);
+}
+
+function openAddQ(prefix){
+  currentQPrefix=prefix;
+  document.getElementById('q-modal-title').textContent=prefix==='kidney'?'添加肾内科问题':'添加呼吸科/心血管问题';
+  document.getElementById('q-input').value='';
+  openModal('q-modal');
+  setTimeout(()=>document.getElementById('q-input').focus(),300);
+}
+
+function saveQuestion(){
+  const text=document.getElementById('q-input').value.trim();
+  if(!text){showToast('请输入问题内容');return}
+  const list=getQuestions(currentQPrefix);list.push(text);
+  saveQuestions(currentQPrefix,list);closeModal('q-modal');
+  renderQuestions(currentQPrefix);showToast('问题已添加');
+}
+
+function switchPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='history')renderHistory();
+}
+
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function closeModalBg(e,id){if(e.target===document.getElementById(id))closeModal(id)}
+
+function showToast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap';
+  t.textContent=msg;document.body.appendChild(t);
+  requestAnimationFrame(()=>{t.style.opacity='1';setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),200)},2000)});
+}
+
+function renderHistory(){
+  const list=document.getElementById('history-list');
+  const entries=[];
+  for(let i=0;i<60;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const dk=getDateKey(d);
+    const data=ld('spo2_'+dk,{slots:{}});
+    const vals=Object.values(data.slots);
+    if(!vals.length&&!data.oxyHours&&!data.note)continue;
+    entries.push({dk,data,vals});
+  }
+  if(!entries.length){
+    list.innerHTML=`<div class="empty-state">
+      <svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="3"/><line x1="16" y1="16" x2="32" y2="16"/><line x1="16" y1="23" x2="32" y2="23"/><line x1="16" y1="30" x2="26" y2="30"/></svg>
+      <p>暂无记录<br>开始记录血氧数据后会显示在这里</p></div>`;
+    return;
+  }
+  list.innerHTML='';
+  entries.forEach(({dk,data,vals})=>{
+    const spo2vals=vals.map(s=>s.spo2).filter(Boolean);
+    const minV=spo2vals.length?Math.min(...spo2vals):null;
+    const d=new Date(dk+'T12:00:00');
+    const label=(d.getMonth()+1)+'月'+d.getDate()+'日';
+    let stats='';
+    vals.forEach(s=>{if(!s.spo2)return;stats+=`<span class="history-stat${s.spo2<88?' low':''}">${s.spo2}%</span>`;});
+    if(data.oxyHours)stats+=`<span class="history-stat">吸氧${data.oxyHours}h</span>`;
+    const div=document.createElement('div');div.className='history-entry';
+    div.innerHTML=`<div class="history-date">${label}${minV?` · 最低 <b style="color:${spo2Color(minV)}">${minV}%</b>`:''}</div>
+    <div class="history-stats">${stats}</div>
+    ${data.note?`<div class="history-note">${data.note}</div>`:''}`;
+    list.appendChild(div);
+  });
+}
+
+function exportData(){
+  let csv='日期,时段,血氧,心率,感觉,是否吸氧,氧流量,备注\n';
+  for(let i=0;i<60;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const dk=getDateKey(d);
+    const data=ld('spo2_'+dk,{slots:{}});
+    Object.entries(data.slots).forEach(([sid,s])=>{
+      const slot=SLOTS.find(x=>x.id===sid);
+      csv+=`${dk},${slot?slot.label:sid},${s.spo2||''},${s.hr||''},${s.feeling||''},${s.oxy||''},${s.flow||''},${s.note||''}\n`;
+    });
+  }
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='韩永宏血氧记录.csv';a.click();URL.revokeObjectURL(url);
+}
+
+function initCountdown(){
+  const target=new Date('2026-06-08');
+  const diff=Math.ceil((target-new Date())/(864e5));
+  const el=document.getElementById('pred-countdown');
+  const sub=document.getElementById('pred-subtitle');
+  if(diff<=0){el.textContent='可减量了';el.style.color='var(--success)';sub.textContent='2月已满，请等6月10日复诊确认后再减至5mg/日';}
+  else{el.textContent=diff+'天';sub.textContent='约6月8日满2月 · 建议6月10日复诊后减至5mg/日';}
+}
+
+
+// First-launch token setup
+function checkToken() {
+  const t = localStorage.getItem('gh_token');
+  if (!t) {
+    document.getElementById('token-setup').style.display = 'flex';
+    document.getElementById('app-body').style.display = 'none';
+  } else {
+    document.getElementById('token-setup').style.display = 'none';
+    document.getElementById('app-body').style.display = 'block';
+  }
+}
+function saveToken() {
+  const t = document.getElementById('token-input').value.trim();
+  if (!t.startsWith('ghp_')) { alert('请输入正确的 Token（以 ghp_ 开头）'); return; }
+  localStorage.setItem('gh_token', t);
+  location.reload();
+}
+
+function init(){
+  initDate();
+  renderSlots();
+  renderMedList(MEDS_MORNING,'meds-morning');
+  renderMedList(MEDS_NOON,'meds-noon');
+  renderMedList(MEDS_NIGHT,'meds-night');
+  renderMedList(MEDS_STOPPED,'meds-stopped');
+  renderQuestions('kidney');
+  renderQuestions('resp');
+  initCountdown();
+  const td=getTodayData();
+  if(td.oxyHours)document.getElementById('oxy-hours').value=td.oxyHours;
+  if(td.oxyWhen)document.getElementById('oxy-when').value=td.oxyWhen;
+  if(td.note)document.getElementById('daily-note').value=td.note;
+  // Pull from cloud on startup
+  syncToGist(true);
+}
+init();
+checkToken();
+</script>
+</div></body>
+</html>
