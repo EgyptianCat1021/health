@@ -140,6 +140,7 @@ textarea{min-height:72px;resize:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{display:inline-block;animation:spin .8s linear infinite}
 </style>
+<script src="https://unpkg.com/@cloudbase/js-sdk/dist/cloudbase.full.js"></script>
 </head>
 <body>
 
@@ -400,42 +401,42 @@ textarea{min-height:72px;resize:none}
 </div>
 
 <script>
-// ─── 腾讯云 CloudBase 同步 ───────────────────────────────
+// ─── 腾讯云 CloudBase 同步（JS SDK）───────────────────────────────
 const TCB_ENV = 'health-d6glspgai7a0979ac';
-const TCB_API = 'https://health-d6glspgai7a0979ac.ap-shanghai.tcb-api.tencentcloudapi.com';
-const TCB_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjlkMWRjMzFlLWI0ZDAtNDQ4Yi1hNzZmLWIwY2M2M2Q4MTQ5OCJ9.eyJhdWQiOiJoZWFsdGgtZDZnbHNwZ2FpN2EwOTc5YWMiLCJleHAiOjI1MzQwMjMwMDc5OSwiaWF0IjoxNzc5MzQ5MzYwLCJhdF9oYXNoIjoiQ0d6VDdiWEdRcmF6S2l2NGVEUmljQSIsInByb2plY3RfaWQiOiJoZWFsdGgtZDZnbHNwZ2FpN2EwOTc5YWMiLCJtZXRhIjp7InBsYXRmb3JtIjoiQXBpS2V5In0sImFkbWluaXN0cmF0b3JfaWQiOiIyMDU3MzY0NzcxMDAxNzc4MTc4IiwidXNlcl90eXBlIjoiIiwiY2xpZW50X3R5cGUiOiJjbGllbnRfc2VydmVyIiwiaXNfc3lzdGVtX2FkbWluIjp0cnVlfQ.a70iJSxjWILcyL3nQGQ-NtfecPxqG2snZEAqjfLoQlxdJH2r6rMrIzh43Bxbn7r1I54cpSm8ZIgoohsBRlxKCS02A066vWST8dcFGBgk8hEfzpZqXaOLGCIsNrif47KZacLYmKCGPyAMcdUJZYKaCiRwQl1q0xKlqGClnEHyAVFRnWN6PE8dhPPQ2tHccR4_0-9oPxcW35gCtDpNEX7uiN_-2J0Tve_GQ8rg30iBhs5e3P3Q1x_gPvsYnh1vbiplJYiXdNjrRT5bSXX4vUNIVwn1xRBo8IXTirFMjOJ-a1Nl8UoDn8xoqqOzfRNWRnQ4SHNN1Up_tIZ9VaAvKhpbEg';
-const DOC_ID_KEY = 'tcb_doc_id';
+let tcbApp = null;
+let tcbDb = null;
 let isSyncing = false;
 let pendingSync = false;
 
-async function tcbRequest(action, params) {
-  const res = await fetch('https://tcb-api.tencentcloudapi.com/web/v1/' + action, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CloudBase-Authorization': TCB_KEY,
-      'X-CloudBase-Env': TCB_ENV
-    },
-    body: JSON.stringify({env: TCB_ENV, ...params})
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { throw new Error('Parse error: ' + text.slice(0,100)); }
-  if (data.code && data.code !== 0) throw new Error('TCB: ' + data.message);
-  return data;
+function initTCB() {
+  try {
+    tcbApp = cloudbase.init({ env: TCB_ENV });
+    tcbDb = tcbApp.database();
+    // 匿名登录
+    tcbApp.auth({ persistence: 'local' }).anonymousAuthProvider().signIn().then(() => {
+      syncToCloud(true);
+    }).catch(e => {
+      console.error('TCB auth error:', e);
+      setSyncStatus('err', '同步失败，点击重试');
+    });
+  } catch(e) {
+    console.error('TCB init error:', e);
+    setSyncStatus('err', '同步失败，点击重试');
+  }
 }
 
 function collectAllData() {
   const out = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k === DOC_ID_KEY) continue;
+    if (k === 'tcb_doc_id') continue;
     try { out[k] = JSON.parse(localStorage.getItem(k)); } catch { out[k] = localStorage.getItem(k); }
   }
   return out;
 }
 
 function applyRemoteData(remote) {
+  if (!remote) return;
   Object.entries(remote).forEach(([k, v]) => {
     if (k.startsWith('spo2_')) {
       const local = ld(k, null);
@@ -451,39 +452,29 @@ function applyRemoteData(remote) {
 
 async function syncToCloud(silent) {
   if (isSyncing) { pendingSync = true; return; }
+  if (!tcbDb) { setSyncStatus('err', '同步失败，点击重试'); return; }
   isSyncing = true;
   setSyncStatus('syncing', '同步中…');
   try {
-    const docId = localStorage.getItem(DOC_ID_KEY);
+    const col = tcbDb.collection('health_sync');
     const allData = collectAllData();
-    const payload = {updated: new Date().toISOString(), data: allData};
+    const docId = localStorage.getItem('tcb_doc_id');
     if (docId) {
-      // update existing doc
-      const r = await tcbRequest('database/update', {
-        query: `db.collection("health_sync").doc("${docId}").update({data: ${JSON.stringify(payload)}})`,
-      });
-      // also pull to merge
-      const pr = await tcbRequest('database/query', {
-        query: `db.collection("health_sync").doc("${docId}").get()`,
-      });
-      if (pr.data && pr.data[0] && pr.data[0].data) applyRemoteData(pr.data[0].data);
+      // pull then push
+      const res = await col.doc(docId).get();
+      if (res.data && res.data[0]) applyRemoteData(res.data[0].health_data);
+      await col.doc(docId).update({ health_data: allData, updated: new Date().toISOString() });
     } else {
-      // first time: try to find existing, or create
-      const pr = await tcbRequest('database/query', {
-        query: `db.collection("health_sync").where({userId:"hanyonghong"}).limit(1).get()`,
-      });
-      if (pr.data && pr.data.length > 0) {
-        const existDoc = pr.data[0];
-        localStorage.setItem(DOC_ID_KEY, existDoc._id);
-        if (existDoc.data) applyRemoteData(existDoc.data);
-        await tcbRequest('database/update', {
-          query: `db.collection("health_sync").doc("${existDoc._id}").update({data: ${JSON.stringify(payload)}})`,
-        });
+      // find or create
+      const res = await col.where({ user_id: 'hanyonghong' }).limit(1).get();
+      if (res.data && res.data.length > 0) {
+        const doc = res.data[0];
+        localStorage.setItem('tcb_doc_id', doc._id);
+        applyRemoteData(doc.health_data);
+        await col.doc(doc._id).update({ health_data: allData, updated: new Date().toISOString() });
       } else {
-        const cr = await tcbRequest('database/add', {
-          query: `db.collection("health_sync").add({data: ${JSON.stringify({userId:"hanyonghong", ...payload})}})`,
-        });
-        if (cr.id) localStorage.setItem(DOC_ID_KEY, cr.id);
+        const addRes = await col.add({ user_id: 'hanyonghong', health_data: allData, updated: new Date().toISOString() });
+        if (addRes.id) localStorage.setItem('tcb_doc_id', addRes.id);
       }
     }
     const t = new Date();
@@ -495,7 +486,7 @@ async function syncToCloud(silent) {
   } catch(e) {
     console.error('Sync error:', e);
     setSyncStatus('err', '同步失败，点击重试');
-    if (!silent) showToast('同步失败，请检查网络');
+    if (!silent) showToast('同步失败: ' + e.message);
   }
   isSyncing = false;
   if (pendingSync) { pendingSync = false; setTimeout(() => syncToCloud(true), 500); }
@@ -909,8 +900,8 @@ function init(){
   if(td.oxyHours)document.getElementById('oxy-hours').value=td.oxyHours;
   if(td.oxyWhen)document.getElementById('oxy-when').value=td.oxyWhen;
   if(td.note)document.getElementById('daily-note').value=td.note;
-  // Pull from cloud on startup
-  syncToCloud(true);
+  // Init TCB after page load
+  setTimeout(initTCB, 500);
 }
 init();
 </script>
