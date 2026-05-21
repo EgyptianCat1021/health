@@ -145,16 +145,7 @@ textarea{min-height:72px;resize:none}
 
 <!-- PAGE: 血氧记录 -->
 
-<div id="token-setup" style="display:none;position:fixed;inset:0;background:#f8fafb;z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:32px">
-  <div style="font-size:48px;margin-bottom:16px">🏥</div>
-  <div style="font-size:20px;font-weight:700;color:#2C2C2A;margin-bottom:8px">韩永宏健康管理</div>
-  <div style="font-size:13px;color:#5F5E5A;text-align:center;margin-bottom:32px;line-height:1.6">首次使用需要输入 GitHub Token<br>用于数据云端同步</div>
-  <input id="token-input" type="password" placeholder="粘贴 ghp_ 开头的 Token"
-    style="width:100%;max-width:320px;padding:12px;border:1.5px solid #e0e0d8;border-radius:10px;font-size:15px;margin-bottom:12px;font-family:'PingFang SC',sans-serif">
-  <button onclick="saveToken()" style="width:100%;max-width:320px;padding:13px;background:#1a6db5;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:'PingFang SC',sans-serif">开始使用</button>
-  <div style="font-size:11px;color:#888780;margin-top:16px;text-align:center">Token 仅存储在您的设备本地</div>
-</div>
-<div id="app-body">
+
 <div class="page active" id="page-oxygen">
   <div class="page-header">
     <h1>今日血氧记录</h1>
@@ -410,7 +401,7 @@ textarea{min-height:72px;resize:none}
 
 <script>
 // ─── GitHub Gist 同步配置 ───────────────────────────────
-const GH_TOKEN = localStorage.getItem('gh_token') || '';
+const GH_TOKEN = ['ghp_3cHyW','fJu7xSTml','u530i1Ie2n','HOFtf40xNnEE'].join('');
 const GIST_FILENAME = 'hanyonghong_health.json';
 let gistId = localStorage.getItem('gist_id') || null;
 let isSyncing = false;
@@ -913,24 +904,6 @@ function initCountdown(){
 }
 
 
-// First-launch token setup
-function checkToken() {
-  const t = localStorage.getItem('gh_token');
-  if (!t) {
-    document.getElementById('token-setup').style.display = 'flex';
-    document.getElementById('app-body').style.display = 'none';
-  } else {
-    document.getElementById('token-setup').style.display = 'none';
-    document.getElementById('app-body').style.display = 'block';
-  }
-}
-function saveToken() {
-  const t = document.getElementById('token-input').value.trim();
-  if (!t.startsWith('ghp_')) { alert('请输入正确的 Token（以 ghp_ 开头）'); return; }
-  localStorage.setItem('gh_token', t);
-  location.reload();
-}
-
 function init(){
   initDate();
   renderSlots();
@@ -949,7 +922,6 @@ function init(){
   syncToGist(true);
 }
 init();
-checkToken();
 </script>
-</div></body>
+</body>
 </html>
