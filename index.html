@@ -400,113 +400,98 @@ textarea{min-height:72px;resize:none}
 </div>
 
 <script>
-// ─── GitHub Gist 同步配置 ───────────────────────────────
-const GH_TOKEN = ['ghp_wCnU','jQyS2dRsF','ao4GBimTv5','du6nUp64dPDSN'].join('');
-const GIST_FILENAME = 'hanyonghong_health.json';
-let gistId = localStorage.getItem('gist_id') || null;
+// ─── 腾讯云 CloudBase 同步 ───────────────────────────────
+const TCB_ENV = 'health-d6glspgai7a0979ac';
+const TCB_API = 'https://health-d6glspgai7a0979ac.ap-shanghai.tcb-api.tencentcloudapi.com';
+const TCB_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjlkMWRjMzFlLWI0ZDAtNDQ4Yi1hNzZmLWIwY2M2M2Q4MTQ5OCJ9.eyJhdWQiOiJoZWFsdGgtZDZnbHNwZ2FpN2EwOTc5YWMiLCJleHAiOjI1MzQwMjMwMDc5OSwiaWF0IjoxNzc5MzQ5MzYwLCJhdF9oYXNoIjoiQ0d6VDdiWEdRcmF6S2l2NGVEUmljQSIsInByb2plY3RfaWQiOiJoZWFsdGgtZDZnbHNwZ2FpN2EwOTc5YWMiLCJtZXRhIjp7InBsYXRmb3JtIjoiQXBpS2V5In0sImFkbWluaXN0cmF0b3JfaWQiOiIyMDU3MzY0NzcxMDAxNzc4MTc4IiwidXNlcl90eXBlIjoiIiwiY2xpZW50X3R5cGUiOiJjbGllbnRfc2VydmVyIiwiaXNfc3lzdGVtX2FkbWluIjp0cnVlfQ.a70iJSxjWILcyL3nQGQ-NtfecPxqG2snZEAqjfLoQlxdJH2r6rMrIzh43Bxbn7r1I54cpSm8ZIgoohsBRlxKCS02A066vWST8dcFGBgk8hEfzpZqXaOLGCIsNrif47KZacLYmKCGPyAMcdUJZYKaCiRwQl1q0xKlqGClnEHyAVFRnWN6PE8dhPPQ2tHccR4_0-9oPxcW35gCtDpNEX7uiN_-2J0Tve_GQ8rg30iBhs5e3P3Q1x_gPvsYnh1vbiplJYiXdNjrRT5bSXX4vUNIVwn1xRBo8IXTirFMjOJ-a1Nl8UoDn8xoqqOzfRNWRnQ4SHNN1Up_tIZ9VaAvKhpbEg';
+const DOC_ID_KEY = 'tcb_doc_id';
 let isSyncing = false;
 let pendingSync = false;
-let lastSyncTime = parseInt(localStorage.getItem('last_sync_time') || '0');
 
-async function gistRequest(method, path, body) {
-  const res = await fetch('https://api.github.com' + path, {
-    method,
-    headers: {
-      'Authorization': 'token ' + GH_TOKEN,
-      'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json'
-    },
-    body: body ? JSON.stringify(body) : undefined
+async function tcbRequest(action, params) {
+  const res = await fetch(TCB_API + '/web/v1/' + action, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TCB_KEY},
+    body: JSON.stringify({env: TCB_ENV, ...params})
   });
-  if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+  if (!res.ok) throw new Error('TCB error: ' + res.status);
   return res.json();
 }
 
-async function findOrCreateGist() {
-  if (gistId) return gistId;
-  // search existing gists
-  const gists = await gistRequest('GET', '/gists?per_page=100');
-  const found = gists.find(g => g.files && g.files[GIST_FILENAME]);
-  if (found) {
-    gistId = found.id;
-    localStorage.setItem('gist_id', gistId);
-    return gistId;
-  }
-  // create new
-  const created = await gistRequest('POST', '/gists', {
-    description: '韩永宏健康管理数据',
-    public: false,
-    files: { [GIST_FILENAME]: { content: JSON.stringify({v:1, data:{}}) } }
-  });
-  gistId = created.id;
-  localStorage.setItem('gist_id', gistId);
-  return gistId;
-}
-
-// Collect ALL app data from localStorage into one object
 function collectAllData() {
   const out = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k === 'gist_id' || k === 'last_sync_time') continue;
+    if (k === DOC_ID_KEY) continue;
     try { out[k] = JSON.parse(localStorage.getItem(k)); } catch { out[k] = localStorage.getItem(k); }
   }
   return out;
 }
 
-// Write remote data into localStorage (merge: remote wins for older keys, local wins for newer)
 function applyRemoteData(remote) {
   Object.entries(remote).forEach(([k, v]) => {
-    // For spo2_ keys: merge slot-level so neither device loses a slot
     if (k.startsWith('spo2_')) {
       const local = ld(k, null);
       if (!local) { sd(k, v); return; }
-      // merge slots
       const merged = Object.assign({}, v, local);
       merged.slots = Object.assign({}, v.slots || {}, local.slots || {});
       sd(k, merged);
     } else {
-      // For questions, only overwrite if local doesn't have it yet
       if (localStorage.getItem(k) === null) sd(k, v);
     }
   });
 }
 
-async function syncToGist(silent) {
+async function syncToCloud(silent) {
   if (isSyncing) { pendingSync = true; return; }
   isSyncing = true;
   setSyncStatus('syncing', '同步中…');
   try {
-    const id = await findOrCreateGist();
-    // pull first
-    const gist = await gistRequest('GET', '/gists/' + id);
-    const remoteRaw = gist.files[GIST_FILENAME]?.content;
-    if (remoteRaw) {
-      try {
-        const remote = JSON.parse(remoteRaw);
-        if (remote.data) applyRemoteData(remote.data);
-      } catch {}
-    }
-    // push merged
+    const docId = localStorage.getItem(DOC_ID_KEY);
     const allData = collectAllData();
-    await gistRequest('PATCH', '/gists/' + id, {
-      files: { [GIST_FILENAME]: { content: JSON.stringify({v:1, updated: new Date().toISOString(), data: allData}) } }
-    });
-    lastSyncTime = Date.now();
-    localStorage.setItem('last_sync_time', lastSyncTime);
-    const t = new Date(lastSyncTime);
+    const payload = {updated: new Date().toISOString(), data: allData};
+    if (docId) {
+      // update existing doc
+      const r = await tcbRequest('database/update', {
+        query: `db.collection("health_sync").doc("${docId}").update({data: ${JSON.stringify(payload)}})`,
+      });
+      // also pull to merge
+      const pr = await tcbRequest('database/query', {
+        query: `db.collection("health_sync").doc("${docId}").get()`,
+      });
+      if (pr.data && pr.data[0] && pr.data[0].data) applyRemoteData(pr.data[0].data);
+    } else {
+      // first time: try to find existing, or create
+      const pr = await tcbRequest('database/query', {
+        query: `db.collection("health_sync").where({userId:"hanyonghong"}).limit(1).get()`,
+      });
+      if (pr.data && pr.data.length > 0) {
+        const existDoc = pr.data[0];
+        localStorage.setItem(DOC_ID_KEY, existDoc._id);
+        if (existDoc.data) applyRemoteData(existDoc.data);
+        await tcbRequest('database/update', {
+          query: `db.collection("health_sync").doc("${existDoc._id}").update({data: ${JSON.stringify(payload)}})`,
+        });
+      } else {
+        const cr = await tcbRequest('database/add', {
+          query: `db.collection("health_sync").add({data: ${JSON.stringify({userId:"hanyonghong", ...payload})}})`,
+        });
+        if (cr.id) localStorage.setItem(DOC_ID_KEY, cr.id);
+      }
+    }
+    const t = new Date();
     const ts = (t.getHours()+'').padStart(2,'0')+':'+(t.getMinutes()+'').padStart(2,'0');
     setSyncStatus('ok', '已同步 '+ts);
     if (!silent) showToast('☁ 同步成功');
-    // re-render in case remote had new data
     renderSlots();
     if (document.getElementById('page-history').classList.contains('active')) renderHistory();
   } catch(e) {
+    console.error('Sync error:', e);
     setSyncStatus('err', '同步失败，点击重试');
     if (!silent) showToast('同步失败，请检查网络');
   }
   isSyncing = false;
-  if (pendingSync) { pendingSync = false; setTimeout(() => syncToGist(true), 500); }
+  if (pendingSync) { pendingSync = false; setTimeout(() => syncToCloud(true), 500); }
 }
 
 function setSyncStatus(state, text) {
@@ -519,13 +504,12 @@ function setSyncStatus(state, text) {
   else { icon.textContent = '⚠'; icon.classList.remove('spin'); badge.style.opacity = '1'; }
 }
 
-function manualSync() { syncToGist(false); }
+function manualSync() { syncToCloud(false); }
 
-// Auto-sync after any save, debounced 2s
 let syncTimer = null;
 function scheduleSync() {
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => syncToGist(true), 2000);
+  syncTimer = setTimeout(() => syncToCloud(true), 2000);
 }
 
 // ─── App data ───────────────────────────────────────────
@@ -919,7 +903,7 @@ function init(){
   if(td.oxyWhen)document.getElementById('oxy-when').value=td.oxyWhen;
   if(td.note)document.getElementById('daily-note').value=td.note;
   // Pull from cloud on startup
-  syncToGist(true);
+  syncToCloud(true);
 }
 init();
 </script>
